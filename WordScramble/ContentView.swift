@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var usedWords = [String]()
     @State private var rootWord = ""
     @State private var newWord = ""
+    @State private var userScores = 0
     
     @State private var errorTitle = ""
     @State private var errorMessage = ""
@@ -19,29 +20,49 @@ struct ContentView: View {
     
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    TextField("Enter your word", text: $newWord)
-                        .textInputAutocapitalization(.none)
-                }
-                Section {
-                    ForEach(usedWords, id: \.self) { word in
-                        HStack {
-                            Image(systemName: "\(word.count).circle")
-                            Text(word)
+            ZStack(alignment: .bottom) {
+                Form {
+                    List {
+                        Section {
+                            TextField("Enter your word", text: $newWord)
+                                .textInputAutocapitalization(.none)
+                        }
+                        Section {
+                            ForEach(usedWords, id: \.self) { word in
+                                HStack {
+                                    Image(systemName: "\(word.count).circle")
+                                    Text(word)
+                                }
+                            }
                         }
                     }
+                    .navigationTitle(rootWord)
+                    .onSubmit(addNewWord)
+                    .onAppear(perform: {
+                        startGame()
+                    })
+                    .alert(errorTitle, isPresented: $showingError) {
+                        Button("Ok", role: .cancel) { }
+                    } message: {
+                        Text(errorMessage)
+                    }
                 }
-            }
-            .navigationTitle(rootWord)
-            .onSubmit(addNewWord)
-            .onAppear(perform: {
-                startGame()
-            })
-            .alert(errorTitle, isPresented: $showingError) {
-                Button("Ok", role: .cancel) { }
-            } message: {
-                Text(errorMessage)
+                VStack(spacing: 30) {
+                    HStack(alignment: .center) {
+                        Text("Your scores:")
+                            .font(.largeTitle)
+                        Text("\(userScores)")
+                            .font(.system(size: 50))
+                    }
+                    Button(action: {
+                        startGame()
+                        newWord = ""
+                    }, label: {
+                        Text("Reset")
+                            .font(.largeTitle)
+                    })
+                }
+                    
             }
         }
     }
@@ -61,6 +82,15 @@ struct ContentView: View {
         let answer = newWord.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard answer.count > 0 else { return }
         
+        guard isNotRootWord(word: answer) else {
+               wordError(title: "Root word detected", message: "You can't use the start word!")
+               return
+           }
+        
+        guard isLong(word: answer) else {
+            wordError(title: "Word too short", message: "Word should be greater than 3 letters!")
+            return
+        }
         guard isOriginal(word: answer) else {
             wordError(title: "Word used alredy", message: "Be more original")
             return
@@ -77,12 +107,21 @@ struct ContentView: View {
         withAnimation {
             usedWords.insert(answer, at: 0)
         }
+        userScores += answer.count
         newWord = ""
     }
+    
+    func isNotRootWord(word: String) -> Bool {
+            return word != rootWord
+        }
     
     func isOriginal(word: String) -> Bool {
         !usedWords.contains(word)
     }
+    
+    func isLong(word: String) -> Bool {
+         return word.count > 3
+     }
     
     func isPossible(word: String) -> Bool {
         var tempWord = rootWord
